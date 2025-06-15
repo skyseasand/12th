@@ -1,22 +1,23 @@
-name: Go CI/CD
+name: CI/CD Workflow
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [created]
+
+  create:
+    tags: true
 
 jobs:
+
   test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout репозитория
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Установить Go
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.22'
@@ -24,26 +25,26 @@ jobs:
       - name: Установить зависимости
         run: go mod tidy
 
-      - name: Прогнать тесты
+      - name: Проверка формата кода
+        run: go fmt ./...
+
+      - name: Запустить тесты
         run: go test ./...
+
 
   publish:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Войти в DockerHub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: DockerHub Login
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Построить и запушить Docker-образ
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/parcel-tracker:${{ github.ref_name }}
